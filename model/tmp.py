@@ -1,3 +1,9 @@
+import pandas as pd
+import numpy as np
+import random
+import torch
+from scipy.spatial.distance import pdist, squareform
+
 def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
     embed = embed.cpu()  # Ensure everything is on CPU for debugging
     labels = labels.cpu()
@@ -10,7 +16,9 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
     adj_new = None
     new_transactions = []
     new_node_names = []
-    
+
+    original_node_count = embed.size(0)
+
     for i in range(1):
         chosen = idx_train[(labels == (c_largest - i))[idx_train]]
         num = int(chosen.shape[0] * portion)
@@ -33,7 +41,7 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
             new_embed = embed[chosen, :] + (chosen_embed[idx_neighbor, :] - embed[chosen, :]) * interp_place
 
             new_labels = labels.new(torch.Size((chosen.shape[0], 1))).reshape(-1).fill_(1)
-            idx_new = np.arange(embed.shape[0], embed.shape[0] + chosen.shape[0])
+            idx_new = np.arange(original_node_count, original_node_count + chosen.shape[0])
             idx_train_append = idx_train.new(idx_new)
 
             embed = torch.cat((embed, new_embed), 0)
@@ -59,6 +67,9 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
                 # Append new transactions to the list of new transactions
                 new_transactions.append(new_transactions_sender)
                 new_transactions.append(new_transactions_receiver)
+
+            # Update the original node count for subsequent iterations
+            original_node_count += chosen.shape[0]
 
     # Combine all new transactions into a single DataFrame
     new_transactions = pd.concat(new_transactions, ignore_index=True)
