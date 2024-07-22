@@ -1,9 +1,3 @@
-import pandas as pd
-import numpy as np
-import random
-import torch
-from scipy.spatial.distance import pdist, squareform
-
 def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
     embed = embed.cpu()  # Ensure everything is on CPU for debugging
     labels = labels.cpu()
@@ -18,6 +12,7 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
     new_node_names = []
 
     original_node_count = embed.size(0)
+    old_to_new_id_map = {}
 
     for i in range(1):
         chosen = idx_train[(labels == (c_largest - i))[idx_train]]
@@ -52,17 +47,18 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
             for k in range(new_embed.size(0)):
                 new_node_name = f'new_node_{idx_new[k].item()}'
                 new_node_names.append(new_node_name)
+                old_to_new_id_map[idx_new[k].item()] = new_node_name
 
                 # Generate new transactions for the new nodes
                 parent_index = chosen[k].item()
                 new_index = idx_new[k].item()
 
                 # Copy transactions involving the parent node to the new node
-                parent_transactions = transactions[(transactions['sender'] == parent_index) | (transactions['receiver'] == parent_index)]
+                parent_transactions = transactions[(transactions['sender'] == parent_index) | (transactions['receiver'] == parent_index)].copy()
                 new_transactions_sender = parent_transactions.copy()
-                new_transactions_sender['sender'].replace(parent_index, new_index, inplace=True)
+                new_transactions_sender['sender'] = new_index
                 new_transactions_receiver = parent_transactions.copy()
-                new_transactions_receiver['receiver'].replace(parent_index, new_index, inplace=True)
+                new_transactions_receiver['receiver'] = new_index
 
                 # Append new transactions to the list of new transactions
                 new_transactions.append(new_transactions_sender)
@@ -73,5 +69,10 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
 
     # Combine all new transactions into a single DataFrame
     new_transactions = pd.concat(new_transactions, ignore_index=True)
+
+    # Replace old indices with new node names in the transactions
+    for idx, new_name in old_to_new_id_map.items():
+        new_transactions['sender'].replace(idx, new_name, inplace=True)
+        new_transactions['receiver'].replace(idx, new_name, inplace=True)
 
     return embed, labels, idx_train, new_transactions, new_node_names
