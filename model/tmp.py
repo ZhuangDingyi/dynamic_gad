@@ -3,16 +3,14 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
     labels = labels.cpu()
     idx_train = idx_train.cpu()
     transactions = transactions.copy()
-    portion = 0
+    portion = target_portion
     
     c_largest = 1
     avg_number = int(idx_train.shape[0] / (c_largest + 1))
     adj_new = None
     new_transactions = []
-
-    original_ids = list(range(embed.size(0)))
-    new_ids = []
-
+    new_node_names = []
+    
     for i in range(1):
         chosen = idx_train[(labels == (c_largest - i))[idx_train]]
         num = int(chosen.shape[0] * portion)
@@ -42,14 +40,14 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
             labels = torch.cat((labels, new_labels), 0)
             idx_train = torch.cat((idx_train, idx_train_append), 0)
 
-            # Generate new transactions for the new nodes
-            for k, chosen_index in enumerate(chosen):
-                parent_index = chosen_index.item()
-                new_index = idx_new[k]
-                new_index = int(new_index)
+            # Generate unique node names for new nodes
+            for k in range(new_embed.size(0)):
+                new_node_name = f'new_node_{idx_new[k].item()}'
+                new_node_names.append(new_node_name)
 
-                # Add to new IDs list
-                new_ids.append(new_index)
+                # Generate new transactions for the new nodes
+                parent_index = chosen[k].item()
+                new_index = idx_new[k].item()
 
                 # Copy transactions involving the parent node to the new node
                 parent_transactions = transactions[(transactions['sender'] == parent_index) | (transactions['receiver'] == parent_index)]
@@ -65,8 +63,4 @@ def recon_upsample(embed, labels, idx_train, transactions, target_portion=1.0):
     # Combine all new transactions into a single DataFrame
     new_transactions = pd.concat(new_transactions, ignore_index=True)
 
-    # Assign names or IDs to the new embeddings and labels
-    all_ids = original_ids + new_ids
-    node_names = ['node_' + str(i) for i in all_ids]
-
-    return embed, labels, idx_train, new_transactions, node_names
+    return embed, labels, idx_train, new_transactions, new_node_names
