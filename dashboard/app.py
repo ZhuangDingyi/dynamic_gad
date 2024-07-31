@@ -17,19 +17,19 @@ from utils import create_hetero_data
 # Variables need specification
 data_name = 'amlsim_mixed'  # 'elliptic' dgraph_fin amlsim_mixed
 ext_rate = 0.3
+# The model used for fraud alert
 model_prediction = np.load(f'outputs/{data_name}/hetero_SAGE-SMOTE-ReNode_ext_{ext_rate}.npz')
 # Define the layout, e.g. PCA or TSNE, see the notebook
 with open(f'dashboard/{data_name}_ext_{ext_rate}_layout.pkl', 'rb') as f:
     pos = pickle.load(f)
 
 
-
 # Create the hetero data
 data_path = f'hetero_data/{data_name}/ext_{ext_rate}/'
 data = create_hetero_data(data_path)
 accounts = pd.read_csv(data_path + 'accounts.csv')
+accounts['account_id'] = accounts['account_id'].astype(str)
 idx_internal = accounts['internal'] == True
-
 
 
 # Prepare data for visualization
@@ -98,7 +98,14 @@ app.layout = html.Div([
     html.Label('Select Internal Account:'),
     dcc.Dropdown(
         id='internal-account-dropdown',
-        options=[{'label': str(acc), 'value': acc} for acc in internal_ids_real],
+        # options = [
+        #     {'label': str(acc), 'value': acc, 'style': {'color': 'red'} if accounts.loc[accounts['account_id'] == acc, 'label'].values[0] == 1 else {}}
+        #     for acc in internal_ids_real
+        # ],
+        # options=[{'label': str(acc), 'value': acc} for acc in internal_ids_real],
+        # Highlight fraud internal accounts in red using HTML elements
+    options = [{'label': html.Span([str(acc)], style={'color': 'red'}) if accounts.loc[accounts['account_id'] == acc, 'label'].values[0] == 1 else str(acc), 'value': acc}
+    for acc in internal_ids_real],
         value=internal_ids_real[0]
     ),
     html.Label('Select Top N Neighbors:'),
